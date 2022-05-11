@@ -234,10 +234,10 @@ Options.Triggers.push({
         data.faithUnmovingCnt = data.faithUnmovingCnt + 1;
         if (data.faithUnmovingCnt === 2) {
           sendCommands([
-              '/e <se.3>',
-              '/e ○△X',
-              '/e □   □',
-              '/e X△○']);
+              '/p <se.3>',
+              '/p ○△X',
+              '/p □   □',
+              '/p X△○']);
         }
       },
     },
