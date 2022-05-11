@@ -368,24 +368,6 @@ Options.Triggers.push({
         },
       },
     }, {
-      id: 'DSR Skyward Leap',
-      type: 'HeadMarker',
-      netRegex: NetRegexes.headMarker(),
-      condition: (data, matches) => data.phase === 'thordan' && data.me === matches.target,
-      alertText: (data, matches, output) => {
-        const id = getHeadmarkerId(data, matches);
-        if (id === headmarkers.skywardLeap)
-          return output.leapOnYou();
-      },
-      outputStrings: {
-        leapOnYou: {
-          en: 'Leap on YOU',
-          de: 'Sprung auf DIR',
-          fr: 'Saut sur VOUS',
-          ko: '광역 대상자',
-        },
-      },
-    }, {
       id: 'DSR Skyward Leap for party',
       type: 'HeadMarker',
       netRegex: NetRegexes.headMarker(),
@@ -423,193 +405,36 @@ Options.Triggers.push({
         }
       }
     }, {
-      id: 'DSR Ancient Quaga',
+      id: 'Delete Thordan And Leap Data',
       type: 'StartsUsing',
       netRegex: NetRegexes.startsUsing({
         id: '63C6',
         source: 'King Thordan',
         capture: false
       }),
-      netRegexDe: NetRegexes.startsUsing({
-        id: '63C6',
-        source: 'Thordan',
-        capture: false
-      }),
-      netRegexFr: NetRegexes.startsUsing({
-        id: '63C6',
-        source: 'Roi Thordan',
-        capture: false
-      }),
-      netRegexJa: NetRegexes.startsUsing({
-        id: '63C6',
-        source: '騎神トールダン',
-        capture: false
-      }),
-      netRegexCn: NetRegexes.startsUsing({
-        id: '63C6',
-        source: '骑神托尔丹',
-        capture: false
-      }),
-      netRegexKo: NetRegexes.startsUsing({
-        id: '63C6',
-        source: '기사신 토르당',
-        capture: false
-      }),
       run: (data) => {
         delete data.thordanDir;
         delete data.leapTargets;
-      },
-      response: Responses.aoe(),
-    }, {
-      id: 'DSR Sanctity of the Ward Direction',
-      type: 'Ability',
-      netRegex: NetRegexes.ability({
-        id: '63E1',
-        source: 'King Thordan',
-        capture: false
-      }),
-      netRegexDe: NetRegexes.ability({
-        id: '63E1',
-        source: 'Thordan',
-        capture: false
-      }),
-      netRegexFr: NetRegexes.ability({
-        id: '63E1',
-        source: 'Roi Thordan',
-        capture: false
-      }),
-      netRegexJa: NetRegexes.ability({
-        id: '63E1',
-        source: '騎神トールダン',
-        capture: false
-      }),
-      netRegexCn: NetRegexes.ability({
-        id: '63E1',
-        source: '骑神托尔丹',
-        capture: false
-      }),
-      netRegexKo: NetRegexes.ability({
-        id: '63E1',
-        source: '기사신 토르당',
-        capture: false
-      }),
-      condition: (data) => data.phase === 'thordan',
-      delaySeconds: 4.7,
-      promise: async(data, _matches, output) => {
-        // The two gladiators spawn in one of two positions: West (95, 100) or East (105, 100).
-        // This triggers uses east/west location of the white knight, Ser Janlennoux (3635) to
-        // determine where both knights will dash as they each only look in two directions.
-        // Ser Janlenoux only looks towards the north (northeast or northwest).
-        // Ser Adelphel only looks towards the south (southwest or southeast).
-        // Thus we can just use one knight and get whether it is east or west for location.
-        // Callout assumes starting from DRK position, but for east/west (two-movement strategy)
-        // you can reverse the cw/ccw callout.
-        const janlenouxLocaleNames = {
-          en: 'Ser Janlenoux',
-          de: 'Janlenoux',
-          fr: 'sire Janlenoux',
-          ja: '聖騎士ジャンルヌ',
-          cn: '圣骑士让勒努',
-          ko: '성기사 장르누',
-        };
-        // Select Ser Janlenoux
-        let combatantNameJanlenoux = null;
-        combatantNameJanlenoux = janlenouxLocaleNames[data.parserLang];
-        let combatantDataJanlenoux = null;
-        if (combatantNameJanlenoux) {
-          combatantDataJanlenoux = await callOverlayHandler({
-            call: 'getCombatants',
-            names: [combatantNameJanlenoux],
-          });
-        }
-        // if we could not retrieve combatant data, the
-        // trigger will not work, so just resume promise here
-        if (combatantDataJanlenoux === null) {
-          console.error(`Ser Janlenoux: null data`);
-          return;
-        }
-        if (!combatantDataJanlenoux.combatants) {
-          console.error(`Ser Janlenoux: null combatants`);
-          return;
-        }
-        const combatantDataJanlenouxLength = combatantDataJanlenoux.combatants.length;
-        if (combatantDataJanlenouxLength <= 1) {
-          console.error(`Ser Janlenoux: expected at least 1 combatants got ${combatantDataJanlenouxLength}`);
-          return;
-        }
-        // Sort to retreive last combatant in list
-        const sortCombatants = (a, b) => (a.ID ?? 0) - (b.ID ?? 0);
-        const combatantJanlenoux = combatantDataJanlenoux.combatants.sort(sortCombatants).shift();
-        if (!combatantJanlenoux)
-          throw new UnreachableCode();
-        // West (95, 100) or East (105, 100).
-        if (combatantJanlenoux.PosX < 100)
-          data.sanctityWardDir = output.clockwise();
-        if (combatantJanlenoux.PosX > 100)
-          data.sanctityWardDir = output.counterclock();
-      },
-      infoText: (data, _matches, output) => {
-        return data.sanctityWardDir ?? output.unknown();
-      },
-      run: (data) => delete data.sanctityWardDir,
-      outputStrings: {
-        clockwise: {
-          en: 'Clockwise',
-          de: 'Im Uhrzeigersinn',
-          ja: '時計回り',
-          ko: '시계방향',
-        },
-        counterclock: {
-          en: 'Counterclockwise',
-          de: 'Gegen den Uhrzeigersinn',
-          ja: '反時計回り',
-          ko: '반시계방향',
-        },
-        unknown: Outputs.unknown,
-      },
-    }, {
-      id: 'DSR Sanctity of the Ward Swords',
-      type: 'HeadMarker',
-      netRegex: NetRegexes.headMarker(),
-      condition: (data, matches) => data.phase === 'thordan' && data.me === matches.target,
-      alarmText: (data, matches, output) => {
-        const id = getHeadmarkerId(data, matches);
-        if (id === headmarkers.sword1)
-          return output.sword1();
-        if (id === headmarkers.sword2)
-          return output.sword2();
-      },
-      outputStrings: {
-        sword1: {
-          en: '1',
-          de: '1',
-          ja: '1',
-          ko: '1',
-        },
-        sword2: {
-          en: '2',
-          de: '2',
-          ja: '2',
-          ko: '2',
-        },
       },
     }, {
       id: 'DSR Sanctity of the Ward Swords for Party',
       type: 'HeadMarker',
       netRegex: NetRegexes.headMarker(),
       condition: (data, matches) => data.phase === 'thordan',
-      alarmText: (data, matches, output) => {
-        const id = getHeadmarkerId(data, matches);
-        if (id === headmarkers.sword1)
-          return output.sword1();
-        if (id === headmarkers.sword2)
-          return output.sword2();
-      },
       run: (data, matches) => {
+        const id = getHeadmarkerId(data, matches);
+        if (id !== headmarkers.sword1 || id != headmarkers.sword2) 
+          return;
         if (!Array.isArray(data.sanctitySwordTargets)) {
           data.sanctitySwordTargets = [];
         }
-        data.sanctitySwordTargets.push(data.party.jobName(matches.target));
+        const job = data.party.jobName(matches.target);
+        data.sanctitySwordTargets.push(job);
+      
+        if (id === headmarkers.sword1) 
+          sendCommands('/p <se.3> SWORD 1 ON ' + job);
+        if (id === headmarkers.sword2)
+          sendCommands('/p <se.3> SWORD 2 ON ' + job);
         if (data.sanctitySwordTargets.length === 2) {
           const swordGroup = {
             'WAR': 0,
@@ -625,8 +450,9 @@ Options.Triggers.push({
             'RDM': 1,
             'SMN': 1,
           };
-          if (swordGroup[data.sanctitySwordTargets[0]] == swordGroup[data.sanctitySwordTargets[1]]) {
-            if (swordGroup[data.sanctitySwordTargets[0]] == 0) {
+          if (swordGroup[data.sanctitySwordTargets[0]] === 
+              swordGroup[data.sanctitySwordTargets[1]]) {
+            if (swordGroup[data.sanctitySwordTargets[0]] === 0) {
               sendCommands('/p <se.3> RDM Flex');
             } else {
               sendCommands('/p <se.3> DNC Flex');
@@ -636,98 +462,14 @@ Options.Triggers.push({
           }
         }
       },
-      outputStrings: {
-        sword1: {
-          en: '1',
-          de: '1',
-          ja: '1',
-          ko: '1',
-        },
-        sword2: {
-          en: '2',
-          de: '2',
-          ja: '2',
-          ko: '2',
-        },
-      },
     }, {
-      id: 'DSR Dragon\'s Gaze',
-      type: 'StartsUsing',
-      netRegex: NetRegexes.startsUsing({
-        id: '63D0',
-        source: 'King Thordan',
-        capture: false
-      }),
-      netRegexDe: NetRegexes.startsUsing({
-        id: '63D0',
-        source: 'Thordan',
-        capture: false
-      }),
-      netRegexFr: NetRegexes.startsUsing({
-        id: '63D0',
-        source: 'Roi Thordan',
-        capture: false
-      }),
-      netRegexJa: NetRegexes.startsUsing({
-        id: '63D0',
-        source: '騎神トールダン',
-        capture: false
-      }),
-      netRegexCn: NetRegexes.startsUsing({
-        id: '63D0',
-        source: '骑神托尔丹',
-        capture: false
-      }),
-      netRegexKo: NetRegexes.startsUsing({
-        id: '63D0',
-        source: '기사신 토르당',
-        capture: false
-      }),
-      durationSeconds: 5,
-      run: (data) => delete data.sanctitySwordTargets,
-      response: Responses.lookAway('alert'),
-    }, {
-      id: 'DSR Sanctity of the Ward Meteor Role',
+      id: 'DSR Sanctity of the Ward Meteor for Party',
       type: 'HeadMarker',
       netRegex: NetRegexes.headMarker(),
       condition: (data) => data.phase === 'thordan',
-      suppressSeconds: 1,
-      infoText: (data, matches, output) => {
-        const id = getHeadmarkerId(data, matches);
+      run: (data, matches) => {
         if (id !== headmarkers.meteor)
           return;
-        if (data.party.isDPS(matches.target))
-          return output.dpsMeteors();
-        return output.tankHealerMeteors();
-      },
-      outputStrings: {
-        tankHealerMeteors: {
-          en: 'Tank/Healer Meteors',
-          de: 'Tank/Heiler Meteore',
-          fr: 'Météores Tank/Healer',
-          ja: 'タンヒラ 隕石',
-          ko: '탱/힐 메테오',
-        },
-        dpsMeteors: {
-          en: 'DPS Meteors',
-          de: 'DDs Meteore',
-          fr: 'Météores DPS',
-          ja: 'DPS 隕石',
-          ko: '딜러 메테오',
-        },
-      },
-    }, {
-      id: 'DSR Sanctity of the Ward Meteor You',
-      type: 'HeadMarker',
-      netRegex: NetRegexes.headMarker(),
-      condition: (data, matches) => data.phase === 'thordan' && data.me === matches.target,
-      alertText: (data, matches, output) => {
-        const id = getHeadmarkerId(data, matches);
-        if (id === headmarkers.meteor)
-          return output.meteorOnYou();
-      },
-      outputStrings: {
-        meteorOnYou: Outputs.meteorOnYou,
       },
     },
   ],
