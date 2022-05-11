@@ -223,21 +223,26 @@ Options.Triggers.push({
         2: false,
         3: false
       },
+      faithUnmovingCnt: 0,
     };
   },
-  triggers: [{
-      id: 'DSR Playstation Fire Chains for Party',
-      type: 'HeadMarker',
-      netRegex: NetRegexes.headMarker(),
-      condition: (data, matches) => data.phase === 'doorboss' && data.me === matches.target,
+  timelineTriggers: [{
+      id: 'Playstation Waymark',
+      regex: /Faith Unmoving/,
+      beforeSeconds: 15,
       run: (data) => {
-        sendCommands([
-            '/p <se.3>',
-            '/p ○△X',
-            '/p □   □',
-            '/p X△○']); ;
+        data.faithUnmovingCnt = data.faithUnmovingCnt + 1;
+        if (data.faithUnmovingCnt === 2) {
+          sendCommands([
+              '/e <se.3>',
+              '/e ○△X',
+              '/e □   □',
+              '/e X△○']);
+        }
       },
-    }, {
+    },
+  ],
+  triggers: [{
       id: 'DSR Dragon\'s Rage',
       // 63C4 Is Thordan's --middle-- action, thordan jumps again and becomes untargetable, shortly after the 2nd 6C34 action
       type: 'Ability',
@@ -374,10 +379,10 @@ Options.Triggers.push({
 
         if (id === headmarkers.sword1)
           sendCommands('/p <se.3> SWORD 1 ON ' + job);
-          console.log('SWORD 1 ON ' + job);
+        console.log('SWORD 1 ON ' + job);
         if (id === headmarkers.sword2)
           sendCommands('/p <se.3> SWORD 2 ON ' + job);
-          console.log('SWORD 2 ON ' + job);
+        console.log('SWORD 2 ON ' + job);
         if (data.sanctitySwordTargets.length === 2) {
           const swordGroup = {
             'WAR': 0,
@@ -447,7 +452,7 @@ Options.Triggers.push({
             const job = data.meteorTargets[swapTargetIndex];
             sendCommands(['/p <se.3> ' + job + ' ' +
                 (Util.isDpsJob(data.meteorTargets[0]) ?
-                dpsGroupToJob[swapGroup] : thGroupToJob[swapGroup]) + 'SWAP']);
+                  dpsGroupToJob[swapGroup] : thGroupToJob[swapGroup]) + 'SWAP']);
           }
           delete data.MeteorTargets;
         }
