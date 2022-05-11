@@ -315,7 +315,7 @@ Options.Triggers.push({
       netRegex: NetRegexes.headMarker(),
       condition: (data, matches) => data.phase === 'thordan',
       run: (data, matches) => {
-        if (Array.isArray(data.leapTargets)) {
+        if (!Array.isArray(data.leapTargets)) {
           data.leapTargets = [];
         }
         data.leapTargets.push(data.party.jobName(matches.target));
@@ -374,8 +374,10 @@ Options.Triggers.push({
 
         if (id === headmarkers.sword1)
           sendCommands('/p <se.3> SWORD 1 ON ' + job);
+          console.log('SWORD 1 ON ' + job);
         if (id === headmarkers.sword2)
           sendCommands('/p <se.3> SWORD 2 ON ' + job);
+          console.log('SWORD 2 ON ' + job);
         if (data.sanctitySwordTargets.length === 2) {
           const swordGroup = {
             'WAR': 0,
