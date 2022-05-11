@@ -275,17 +275,6 @@ Options.Triggers.push({
         },
       },
     }, {
-      id: 'DSR Skyblind',
-      // 631A Skyblind (2.2s cast) is a targetted ground aoe where A65 Skyblind
-      // effect expired on the player.
-      type: 'GainsEffect',
-      netRegex: NetRegexes.gainsEffect({
-        effectId: 'A65'
-      }),
-      condition: Conditions.targetIsYou(),
-      delaySeconds: (_data, matches) => parseFloat(matches.duration),
-      response: Responses.moveAway(),
-    }, {
       id: 'DSR Dragon\'s Rage',
       // 63C4 Is Thordan's --middle-- action, thordan jumps again and becomes untargetable, shortly after the 2nd 6C34 action
       type: 'Ability',
@@ -747,26 +736,13 @@ Options.Triggers.push({
 Options.Triggers.push({
   zoneId: ZoneId.TheNavelExtreme,
   //timelineFile: 'titan-ex.txt',
-  timelineTriggers: [{
-      id: 'TitanEx Mountain Buster',
-      regex: /Mountain Buster/,
-      beforeSeconds: 7,
-      condition: (data) => data.role === 'healer' || data.role === 'tank',
-      response: Responses.tankBuster(),
-    }, {
-      id: 'TitanEx Mountain Buster Avoid Test',
+  timelineTriggers: [ {
+      id: 'TitanEx Mountain Buster Test',
       regex: /Mountain Buster/,
       beforeSeconds: 0,
-      condition: (data) => data.role !== 'healer' && data.role !== 'tank',
-      response: Responses.tankCleave(),
       run: (data) => {
         sendCommands(['/e <se.3>']);
       },
-    }, {
-      id: 'TitanEx Tumult',
-      regex: /Tumult/,
-      beforeSeconds: 5,
-      response: Responses.aoe(),
     },
   ]
 })
