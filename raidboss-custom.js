@@ -365,15 +365,14 @@ Options.Triggers.push({
       condition: (data, matches) => data.phase === 'thordan',
       run: (data, matches) => {
         const id = getHeadmarkerId(data, matches);
-        if (id !== headmarkers.sword1 || id != headmarkers.sword2) 
+        if (id !== headmarkers.sword1 || id != headmarkers.sword2)
           return;
-        if (!Array.isArray(data.sanctitySwordTargets)) {
+        if (!Array.isArray(data.sanctitySwordTargets))
           data.sanctitySwordTargets = [];
-        }
         const job = data.party.jobName(matches.target);
         data.sanctitySwordTargets.push(job);
-      
-        if (id === headmarkers.sword1) 
+
+        if (id === headmarkers.sword1)
           sendCommands('/p <se.3> SWORD 1 ON ' + job);
         if (id === headmarkers.sword2)
           sendCommands('/p <se.3> SWORD 2 ON ' + job);
@@ -392,8 +391,8 @@ Options.Triggers.push({
             'RDM': 1,
             'SMN': 1,
           };
-          if (swordGroup[data.sanctitySwordTargets[0]] === 
-              swordGroup[data.sanctitySwordTargets[1]]) {
+          if (swordGroup[data.sanctitySwordTargets[0]] ===
+            swordGroup[data.sanctitySwordTargets[1]]) {
             if (swordGroup[data.sanctitySwordTargets[0]] === 0) {
               sendCommands('/p <se.3> RDM Flex');
             } else {
@@ -413,6 +412,43 @@ Options.Triggers.push({
         if (id !== headmarkers.meteor)
           return;
         // TODO: implement this.
+        if (!Array.isArray(data.meteorTargets))
+          data.meteorTargets = [];
+        const job = data.party.jobName(matches.target);
+        data.meteorTargets.push(job);
+        if (data.meteorTargets.length === 2) {
+          const jobToGroup = {
+            // G1 North
+            'WAR': 0,
+            'SAM': 0,
+            // G2 East
+            'RPR': 1,
+            'NIN': 1,
+            'DRK': 1,
+            // G3 South
+            'AST': 2,
+            'WHM': 2,
+            'DNC': 2,
+            // G4 West
+            'SGE': 3,
+            'SCH': 3,
+            'RDM': 3,
+            'SMN': 3,
+          };
+          const dpsGroupToJob = ['SAM', 'RPR', 'DNC', 'RDM'];
+          const thGroupToJob = ['WAR', 'DRK', 'AST', 'SGE'];
+          if ((jobToGroup(data.meteorTargets[0]) + jobToGroup(data.meteorTargets[1])) % 2 === 0) {
+            sendCommands(['/p <se.3> No Swap']);
+          } else {
+            const swapTargetIndex = jobToGroup(data.meteorTargets[0]) % 2 === 1 ? 0 : 1;
+            const swapGroup = (jobToGroup[data.meteorTargets[(swapTargetIndex + 1) % 2]] + 2) % 4;
+            const job = data.meteorTargets[swapTargetIndex];
+            sendCommands(['/p <se.3> ' + job + ' ' +
+                (Util.isDpsJob(data.meteorTargets[0]) ?
+                dpsGroupToJob[swapGroup] : thGroupToJob[swapGroup]) + 'SWAP']);
+          }
+          delete data.MeteorTargets;
+        }
       },
     },
   ],
@@ -421,7 +457,7 @@ Options.Triggers.push({
 Options.Triggers.push({
   zoneId: ZoneId.TheNavelExtreme,
   //timelineFile: 'titan-ex.txt',
-  timelineTriggers: [ {
+  timelineTriggers: [{
       id: 'TitanEx Mountain Buster Test',
       regex: /Mountain Buster/,
       beforeSeconds: 0,
