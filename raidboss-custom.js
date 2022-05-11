@@ -226,53 +226,16 @@ Options.Triggers.push({
     };
   },
   triggers: [{
-      id: 'DSR Playstation Fire Chains',
+      id: 'DSR Playstation Fire Chains for Party',
       type: 'HeadMarker',
       netRegex: NetRegexes.headMarker(),
       condition: (data, matches) => data.phase === 'doorboss' && data.me === matches.target,
-      alertText: (data, matches, output) => {
-        const id = getHeadmarkerId(data, matches);
-        if (id === headmarkers.firechainCircle)
-          return output.circle();
-        if (id === headmarkers.firechainTriangle)
-          return output.triangle();
-        if (id === headmarkers.firechainSquare)
-          return output.square();
-        if (id === headmarkers.firechainX)
-          return output.x();
-      },
       run: (data) => {
         sendCommands([
             '/p <se.3>',
             '/p ○△X',
             '/p □   □',
             '/p X△○']); ;
-      },
-      outputStrings: {
-        circle: {
-          en: 'Red Circle',
-          de: 'Roter Kreis',
-          fr: 'Cercle rouge',
-          ko: '빨강 원형징',
-        },
-        triangle: {
-          en: 'Green Triangle',
-          de: 'Grünes Dreieck',
-          fr: 'Triangle vert',
-          ko: '초록 세모징',
-        },
-        square: {
-          en: 'Purple Square',
-          de: 'Lilanes Viereck',
-          fr: 'Carré violet',
-          ko: '보라 네모징',
-        },
-        x: {
-          en: 'Blue X',
-          de: 'Blaues X',
-          fr: 'Croix bleue',
-          ko: '파랑 X징',
-        },
       },
     }, {
       id: 'DSR Dragon\'s Rage',
@@ -281,26 +244,6 @@ Options.Triggers.push({
       netRegex: NetRegexes.ability({
         id: '63C4',
         source: 'King Thordan'
-      }),
-      netRegexDe: NetRegexes.ability({
-        id: '63C4',
-        source: 'Thordan'
-      }),
-      netRegexFr: NetRegexes.ability({
-        id: '63C4',
-        source: 'Roi Thordan'
-      }),
-      netRegexJa: NetRegexes.ability({
-        id: '63C4',
-        source: '騎神トールダン'
-      }),
-      netRegexCn: NetRegexes.ability({
-        id: '63C4',
-        source: '骑神托尔丹'
-      }),
-      netRegexKo: NetRegexes.ability({
-        id: '63C4',
-        source: '기사신 토르당'
       }),
       condition: (data) => (data.phase === 'thordan' && (data.thordanJumpCounter = (data.thordanJumpCounter ?? 0) + 1) === 2),
       delaySeconds: 0.5,
@@ -349,7 +292,6 @@ Options.Triggers.push({
           dir: dirs[data.thordanDir ?? 8],
         });
       },
-      //run: (data) => delete data.thordanDir,
       outputStrings: {
         north: Outputs.north,
         northeast: Outputs.northeast,
@@ -470,6 +412,7 @@ Options.Triggers.push({
       run: (data, matches) => {
         if (id !== headmarkers.meteor)
           return;
+        // TODO: implement this.
       },
     },
   ],
