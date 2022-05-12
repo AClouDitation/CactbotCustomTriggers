@@ -170,25 +170,12 @@ const matchedPositionTo4Dir = (combatant) => {
 Options.Triggers.push({
   zoneId: ZoneId.DragonsongsRepriseUltimate,
   //timelineFile: 'dragonsongs_reprise_ultimate.txt',
-  initData: () => {
-    return {
-      phase: 'doorboss',
-      firstAdelphelJump: true,
-      diveFromGraceNum: {},
-      diveFromGraceHasArrow: {
-        1: false,
-        2: false,
-        3: false
-      },
-      faithUnmovingCnt: 0,
-    };
-  },
   timelineTriggers: [{
       id: 'Playstation Waymark',
       regex: /Faith Unmoving/,
       beforeSeconds: 15,
       run: (data) => {
-        data.faithUnmovingCnt = data.faithUnmovingCnt + 1;
+        data.faithUnmovingCnt = (data.faithUnmovingCnt ?? 0) + 1;
         if (data.faithUnmovingCnt === 2) {
           sendCommands([
               '/p <se.3>',
@@ -200,44 +187,6 @@ Options.Triggers.push({
     },
   ],
   triggers: [{
-      id: 'DSR Dragon\'s Rage Thordan Dir Collector',
-      // 63C4 Is Thordan's --middle-- action, thordan jumps again and becomes untargetable, shortly after the 2nd 6C34 action
-      type: 'Ability',
-      netRegex: NetRegexes.ability({
-        id: '63C4',
-        source: 'King Thordan'
-      }),
-      condition: (data) => (data.phase === 'thordan' && (data.thordanJumpCounter = (data.thordanJumpCounter ?? 0) + 1) === 2),
-      delaySeconds: 0.5,
-      promise: async(data, matches) => {
-        // Select King Thordan
-        let thordanData = null;
-        thordanData = await callOverlayHandler({
-          call: 'getCombatants',
-          ids: [parseInt(matches.sourceId, 16)],
-        });
-        // if we could not retrieve combatant data, the
-        // trigger will not work, so just resume promise here
-        if (thordanData === null) {
-          console.error(`King Thordan: null data`);
-          return;
-        }
-        if (!thordanData.combatants) {
-          console.error(`King Thordan: null combatants`);
-          return;
-        }
-        const thordanDataLength = thordanData.combatants.length;
-        if (thordanDataLength !== 1) {
-          console.error(`King Thordan: expected 1 combatants got ${thordanDataLength}`);
-          return;
-        }
-        // Add the combatant's position
-        const thordan = thordanData.combatants.pop();
-        if (!thordan)
-          throw new UnreachableCode();
-        data.thordanDir = matchedPositionTo8Dir(thordan);
-      },
-    }, {
       id: 'DSR Skyward Leap Targets Collector',
       type: 'HeadMarker',
       netRegex: NetRegexes.headMarker(),
@@ -249,6 +198,8 @@ Options.Triggers.push({
         if (!Array.isArray(data.leapTargets))
           data.leapTargets = [];
         data.leapTargets.push(matches.target);
+        console.log('BAKA! leapTargets:');
+        console.log(data.leapTargets);
       },
     }, {
       id: 'DSR Skyward Leap Targets Strategy',
@@ -256,7 +207,7 @@ Options.Triggers.push({
       netRegex: NetRegexes.headMarker(),
       condition: (data, matches) => data.phase !== 'thordan'
        && getHeadmarkerId(data, matches) === headmarkers.skywardLeap
-       && !!data.thordanDir
+       //&& !!data.thordanDirection
        && !!data.leapTargets
        && data.leapTargets.length === 3,
       infoText: (data, _matches, output) => {
@@ -270,7 +221,8 @@ Options.Triggers.push({
         leapPrio[output.prio4()] = 4;
         leapPrio[output.prio5()] = 5;
         leapTargets.sort((a, b) => leapPrio[a] - leapPrio[b]);
-
+        console.log('BAKA! sorted leapTargets:');
+        console.log(data.leapTargets);
         const dirs = {
           0: output.northwest(),
           1: output.north(),
@@ -284,15 +236,15 @@ Options.Triggers.push({
         };
         return output.safespot({
           player1: data.ShortName(leapTargets[0]),
-          dir1: dirs[(data.thordandir + 2) % 8],
+          dir1: '3 o\'clock', // dirs[(data.thordanDirection + 2) % 8],
           player2: data.ShortName(leapTargets[1]),
-          dir2: dirs[(data.thordandir + 4) % 8],
+          dir2: '6 o\'clock', // dirs[(data.thordanDirection + 4) % 8],
           player3: data.ShortName(leapTargets[2]),
-          dir3: dirs[(data.thordandir + 6) % 8]
+          dir3: '9 o\'clock', // dirs[(data.thordanDirection + 6) % 8],
         });
       },
       run: (data, matches) => {
-        delete data.thordanDir;
+        //delete data.thordanDirection;
         delete data.leapTargets;
       },
       outputStrings: {
@@ -323,13 +275,15 @@ Options.Triggers.push({
       type: 'HeadMarker',
       netRegex: NetRegexes.headMarker(),
       condition: (data, matches) => data.phase === 'thordan',
-      alarmText: (data, matches, output) => {
+      infoText: (data, matches, output) => {
         const id = getHeadmarkerId(data, matches);
         if (id !== headmarkers.sword1 || id != headmarkers.sword2)
           return;
         if (!Array.isArray(data.sanctitySwordTargets))
           data.sanctitySwordTargets = [];
         data.sanctitySwordTargets.push(matches.target);
+        console.log('BAKA! sword:');
+        console.log(data.sanctitySwordTargets);
         return output.swordOnTarget({
           sword: id === headmarkers.sword1 ? output.sword1() : output.sword2,
           player: matches.target
@@ -379,7 +333,6 @@ Options.Triggers.push({
         } else {
           return output.noflex();
         }
-
       },
       outputStrings: {
         group1player1: 'WAR',
@@ -400,53 +353,6 @@ Options.Triggers.push({
           en: 'No Flex',
         },
       }
-    }, {
-      id: 'DSR Sanctity of the Ward Meteor for Party',
-      type: 'HeadMarker',
-      netRegex: NetRegexes.headMarker(),
-      condition: (data) => data.phase === 'thordan',
-      run: (data, matches) => {
-        if (id !== headmarkers.meteor)
-          return;
-        // TODO: implement this.
-        if (!Array.isArray(data.meteorTargets))
-          data.meteorTargets = [];
-        const job = data.party.jobName(matches.target);
-        data.meteorTargets.push(job);
-        if (data.meteorTargets.length === 2) {
-          const jobToGroup = {
-            // G1 North
-            'WAR': 0,
-            'SAM': 0,
-            // G2 East
-            'RPR': 1,
-            'NIN': 1,
-            'DRK': 1,
-            // G3 South
-            'AST': 2,
-            'WHM': 2,
-            'DNC': 2,
-            // G4 West
-            'SGE': 3,
-            'SCH': 3,
-            'RDM': 3,
-            'SMN': 3,
-          };
-          const dpsGroupToJob = ['SAM', 'RPR', 'DNC', 'RDM'];
-          const thGroupToJob = ['WAR', 'DRK', 'AST', 'SGE'];
-          if ((jobToGroup(data.meteorTargets[0]) + jobToGroup(data.meteorTargets[1])) % 2 === 0) {
-            sendCommands(['/p <se.3> No Swap']);
-          } else {
-            const swapTargetIndex = jobToGroup(data.meteorTargets[0]) % 2 === 1 ? 0 : 1;
-            const swapGroup = (jobToGroup[data.meteorTargets[(swapTargetIndex + 1) % 2]] + 2) % 4;
-            const job = data.meteorTargets[swapTargetIndex];
-            sendCommands(['/p <se.3> ' + job + ' ' +
-                (Util.isDpsJob(data.meteorTargets[0]) ?
-                  dpsGroupToJob[swapGroup] : thGroupToJob[swapGroup]) + 'SWAP']);
-          }
-          delete data.MeteorTargets;
-        }
-      },
     },
   ],
 });
