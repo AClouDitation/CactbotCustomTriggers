@@ -72,26 +72,6 @@ Options.Triggers.push({
         line: 'You poke the striking dummy.*?',
         capture: false
       }),
-      netRegexDe: NetRegexes.gameNameLog({
-        line: 'Du stupst die Trainingspuppe an.*?',
-        capture: false
-      }, ),
-      netRegexFr: NetRegexes.gameNameLog({
-        line: 'Vous touchez légèrement le mannequin d\'entraînement du doigt.*?',
-        capture: false,
-      }, ),
-      netRegexJa: NetRegexes.gameNameLog({
-        line: '.*は木人をつついた.*?',
-        capture: false
-      }),
-      netRegexCn: NetRegexes.gameNameLog({
-        line: '.*用手指戳向木人.*?',
-        capture: false
-      }),
-      netRegexKo: NetRegexes.gameNameLog({
-        line: '.*나무인형을 쿡쿡 찌릅니다.*?',
-        capture: false
-      }),
       preRun: function (data) {
         data.pokes = (data.pokes || 0) + 1;
       },
@@ -119,34 +99,6 @@ Options.Triggers.push({
   overrideTimelineFile: true,
   // This file is in the same directory as this JavaScript file.
   timelineFile: 'test-override.txt',
-});
-
-// Here's an example of a adding a custom regen trigger.
-// It reminds you to use regen again when you are in Sastasha (unsynced).
-Options.Triggers.push({
-  // The zone this should apply to.
-  // This should match the zoneId in the triggers file.
-  zoneId: ZoneId.Sastasha,
-  triggers: [
-    // A more complicated regen trigger.
-    {
-      // This is a made up id that does not exist in cactbot.
-      id: 'User Example Regen',
-      // This will match log lines from ACT that look like this:
-      // "Nacho Queen gains the effect of Regen from Taco Cat for 21.00 Seconds."
-      regex: Regexes.gainsEffect({
-        effect: 'Regen'
-      }),
-      delaySeconds: function (data, matches) {
-        // Wait the amount of seconds regen lasts before reminding you to
-        // reapply it.  This is not smart enough to figure out if you
-        // cast it twice, and is left as an exercise for the reader to
-        // figure out how to do so via storing variables on `data`.
-        return data.ParseLocaleFloat(matches.duration);
-      },
-      alertText: 'Regen',
-    },
-  ],
 });
 
 // Due to changes introduced in patch 5.2, overhead markers now have a random offset
@@ -248,7 +200,7 @@ Options.Triggers.push({
     },
   ],
   triggers: [{
-      id: 'DSR Dragon\'s Rage',
+      id: 'DSR Dragon\'s Rage Thordan Dir Collector',
       // 63C4 Is Thordan's --middle-- action, thordan jumps again and becomes untargetable, shortly after the 2nd 6C34 action
       type: 'Ability',
       netRegex: NetRegexes.ability({
@@ -284,40 +236,6 @@ Options.Triggers.push({
         if (!thordan)
           throw new UnreachableCode();
         data.thordanDir = matchedPositionTo8Dir(thordan);
-      },
-      infoText: (data, _matches, output) => {
-        // Map of directions
-        const dirs = {
-          0: output.northwest(),
-          1: output.north(),
-          2: output.northeast(),
-          3: output.east(),
-          4: output.southeast(),
-          5: output.south(),
-          6: output.southwest(),
-          7: output.west(),
-          8: output.unknown(),
-        };
-        return output.thordanLocation({
-          dir: dirs[data.thordanDir ?? 8],
-        });
-      },
-      outputStrings: {
-        north: Outputs.north,
-        northeast: Outputs.northeast,
-        east: Outputs.east,
-        southeast: Outputs.southeast,
-        south: Outputs.south,
-        southwest: Outputs.southwest,
-        west: Outputs.west,
-        northwest: Outputs.northwest,
-        unknown: Outputs.unknown,
-        thordanLocation: {
-          en: '${dir} Thordan',
-          de: '${dir} Thordan',
-          ja: 'トールダンが${dir}で',
-          ko: '토르당 ${dir}',
-        },
       },
     }, {
       id: 'DSR Skyward Leap Targets Collector',
@@ -405,48 +323,83 @@ Options.Triggers.push({
       type: 'HeadMarker',
       netRegex: NetRegexes.headMarker(),
       condition: (data, matches) => data.phase === 'thordan',
-      run: (data, matches) => {
+      alarmText: (data, matches, output) => {
         const id = getHeadmarkerId(data, matches);
         if (id !== headmarkers.sword1 || id != headmarkers.sword2)
           return;
         if (!Array.isArray(data.sanctitySwordTargets))
           data.sanctitySwordTargets = [];
-        const job = data.party.jobName(matches.target);
-        data.sanctitySwordTargets.push(job);
-
-        if (id === headmarkers.sword1)
-          sendCommands('/p <se.3> SWORD 1 ON ' + job);
-        console.log('SWORD 1 ON ' + job);
-        if (id === headmarkers.sword2)
-          sendCommands('/p <se.3> SWORD 2 ON ' + job);
-        console.log('SWORD 2 ON ' + job);
-        if (data.sanctitySwordTargets.length === 2) {
-          const swordGroup = {
-            'WAR': 0,
-            'AST': 0,
-            'WHM': 0,
-            'RPR': 0,
-            'NIN': 0,
-            'DNC': 0,
-            'DRK': 1,
-            'SGE': 1,
-            'SCH': 1,
-            'SAM': 1,
-            'RDM': 1,
-            'SMN': 1,
-          };
-          if (swordGroup[data.sanctitySwordTargets[0]] ===
-            swordGroup[data.sanctitySwordTargets[1]]) {
-            if (swordGroup[data.sanctitySwordTargets[0]] === 0) {
-              sendCommands('/p <se.3> RDM Flex');
-            } else {
-              sendCommands('/p <se.3> DNC Flex');
-            }
-          } else {
-            sendCommands('/p <se.3> No Flex');
-          }
+        data.sanctitySwordTargets.push(matches.target);
+        return output.swordOnTarget({
+          sword: id === headmarkers.sword1 ? output.sword1() : output.sword2,
+          player: matches.target
+        });
+      },
+      outputStrings: {
+        sword1: {
+          en: '1',
+        },
+        sword2: {
+          en: '2',
+        },
+        swordOnTarget: {
+          en: '${sword} on ${player}'
         }
       },
+    }, {
+      id: 'DSR Sanctity of the Ward Swords Flex',
+      type: 'HeadMarker',
+      netRegex: NetRegexes.headMarker(),
+      condition: (data, matches) => data.phase === 'thordan'
+       && !!data.sanctitySwordTargets
+       && data.sanctitySwordTargets.length === 2,
+      infoText: (data, matches) => {
+        const job = data.party.jobName(matches.target);
+        data.sanctitySwordTargets.push(job);
+        const group = {}
+        group[output.group1player1()] = 0;
+        group[output.group1player2()] = 0;
+        group[output.group1player3()] = 0;
+        group[output.group1player4()] = 0;
+        group[output.group2player1()] = 1;
+        group[output.group2player2()] = 1;
+        group[output.group2player3()] = 1;
+        group[output.group2player4()] = 1;
+
+        const sword1 = data.party.jobName(sanctitySwordTargets[0]);
+        const sword2 = data.party.jobName(sanctitySwordTargets[1]);
+
+        if (group[sword1] === group[sword2]) {
+          if (group[sword1] === 0) {
+            // Two swords on group 1.
+            return output.group2flex();
+          } else {
+            return output.group1flex();
+          }
+        } else {
+          return output.noflex();
+        }
+
+      },
+      outputStrings: {
+        group1player1: 'WAR',
+        group1player2: 'AST',
+        group1player3: 'RPR',
+        group1player4: 'DNC',
+        group2player1: 'DRK',
+        group2player2: 'SGE',
+        group2player3: 'SAM',
+        group2player4: 'RDM',
+        group1flex: {
+          en: 'DNC Flex',
+        },
+        group2flex: {
+          en: 'RDM Flex',
+        },
+        noflex: {
+          en: 'No Flex',
+        },
+      }
     }, {
       id: 'DSR Sanctity of the Ward Meteor for Party',
       type: 'HeadMarker',
@@ -496,18 +449,4 @@ Options.Triggers.push({
       },
     },
   ],
-});
-
-Options.Triggers.push({
-  zoneId: ZoneId.TheNavelExtreme,
-  //timelineFile: 'titan-ex.txt',
-  timelineTriggers: [{
-      id: 'TitanEx Mountain Buster Test',
-      regex: /Mountain Buster/,
-      beforeSeconds: 0,
-      run: (data) => {
-        sendCommands(['/e <se.3>']);
-      },
-    },
-  ]
 });
