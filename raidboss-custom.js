@@ -95,12 +95,17 @@ Options.Triggers.push({
       preRun: function (data) {
         data.pokes = (data.pokes || 0) + 1;
       },
-      // Instead of printing the number of pokes with infoText like the original trigger,
-      // This overrides the type and text of the output.
-      alarmText: 'POKE (user file override)',
+      infoText: (data, _matches, output) => {
+        return output.test();
+      },
       run: () => {
-        sendCommands(['/e <se.3>', '/e <se.6>']);
-      }
+        // sendCommands(['/e <se.3>', '/e <se.6>']);
+      },
+      outputStrings: {
+        test: {
+          en: 'Test',
+        },
+      },
     },
   ],
 });
@@ -315,53 +320,85 @@ Options.Triggers.push({
         },
       },
     }, {
-      id: 'DSR Skyward Leap for party',
+      id: 'DSR Skyward Leap Targets Collector',
       type: 'HeadMarker',
       netRegex: NetRegexes.headMarker(),
       condition: (data, matches) => data.phase === 'thordan',
       run: (data, matches) => {
-        if (!Array.isArray(data.leapTargets)) {
+        const id = getHeadmarkerId(data, matches);
+        if (id !== headmarkers.skywardLeap)
+          return;
+        if (!Array.isArray(data.leapTargets))
           data.leapTargets = [];
-        }
-        data.leapTargets.push(data.party.jobName(matches.target));
-        if (data.leapTargets.length === 3) {
-          if (!data.thordanDir) {
-            console.error(`Thordan Dir Not Found.`);
-            return;
-          }
-          const leapPrio = {
-            'AST': 0,
-            'WHM': 1,
-            'SGE': 2,
-            'SCH': 3,
-            'SAM': 4,
-            'RPR': 5,
-            'NIN': 6,
-            'DNC': 7,
-            'RDM': 8,
-            'SMN': 9
-          };
-          data.leapTargets.sort((a, b) => {
-            return leapPrio[a] < leapPrio[b];
-          });
-          sendCommands(
-            '/p  <se.3>',
-            concat('/p ', data.leapTargets[0], 'go to', dirToWaymark[(data.thordanDir + 2) % 8]),
-            concat('/p ', data.leapTargets[1], 'go to', dirToWaymark[(data.thordanDir + 4) % 8]),
-            concat('/p ', data.leapTargets[2], 'go to', dirToWaymark[(data.thordanDir + 6) % 8]));
-        }
-      }
+        data.leapTargets.push(matches.target);
+      },
     }, {
-      id: 'Delete Thordan And Leap Data',
-      type: 'StartsUsing',
-      netRegex: NetRegexes.startsUsing({
-        id: '63C6',
-        source: 'King Thordan',
-        capture: false
-      }),
-      run: (data) => {
+      id: 'DSR Skyward Leap Targets Strategy',
+      type: 'HeadMarker',
+      netRegex: NetRegexes.headMarker(),
+      condition: (data, matches) => data.phase !== 'thordan'
+       && getHeadmarkerId(data, matches) === headmarkers.skywardLeap
+       && !!data.thordanDir
+       && !!data.leapTargets
+       && data.leapTargets.length === 3,
+      infoText: (data, _matches, output) => {
+        if (leapTargets.some((target) => data.party.isTank(target)))
+          return output.tankGotLeap();
+        const leapPrio = {}
+        leapPrio[output.prio0()] = 0;
+        leapPrio[ouptut.prio1()] = 1;
+        leapPrio[output.prio2()] = 2;
+        leapPrio[output.prio3()] = 3;
+        leapPrio[output.prio4()] = 4;
+        leapPrio[output.prio5()] = 5;
+        leapTargets.sort((a, b) => leapPrio[a] - leapPrio[b]);
+
+        const dirs = {
+          0: output.northwest(),
+          1: output.north(),
+          2: output.northeast(),
+          3: output.east(),
+          4: output.southeast(),
+          5: output.south(),
+          6: output.southwest(),
+          7: output.west(),
+          8: output.unknown(),
+        };
+        return output.safespot({
+          player1: data.ShortName(leapTargets[0]),
+          dir1: dirs[(data.thordandir + 2) % 8],
+          player2: data.ShortName(leapTargets[1]),
+          dir2: dirs[(data.thordandir + 4) % 8],
+          player3: data.ShortName(leapTargets[2]),
+          dir3: dirs[(data.thordandir + 6) % 8]
+        });
+      },
+      run: (data, matches) => {
         delete data.thordanDir;
         delete data.leapTargets;
+      },
+      outputStrings: {
+        north: Outputs.north,
+        northeast: Outputs.northeast,
+        east: Outputs.east,
+        southeast: Outputs.southeast,
+        south: Outputs.south,
+        southwest: Outputs.southwest,
+        west: Outputs.west,
+        northwest: Outputs.northwest,
+        unknown: Outputs.unknown,
+        prio0: 'AST',
+        prio1: 'SGE',
+        prio2: 'SAM',
+        prio3: 'RPR',
+        prio4: 'DNC',
+        prio5: 'RDM',
+        safespot: {
+          en: '${player1} ${dir1} / ${player2} ${dir2} / ${player3} ${dir3}'
+        },
+        tankGotLeap: {
+          en: 'You fucked up.'
+        }
       },
     }, {
       id: 'DSR Sanctity of the Ward Swords for Party',
@@ -473,4 +510,4 @@ Options.Triggers.push({
       },
     },
   ]
-})
+});
