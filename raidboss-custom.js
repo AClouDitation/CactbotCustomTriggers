@@ -29,6 +29,9 @@ Options.PullSound = '../../resources/sounds/freesound/sonar.webm';
 // See: https://github.com/quisquous/cactbot/blob/main/docs/CactbotCustomization.md#customizing-behavior
 Options.PlayerNicks = {};
 
+console.log('===============================');
+console.log('Raid boss custom trigger loaded');
+console.log('===============================');
 const dirToWaymark = [
   '4',
   'A',
@@ -65,7 +68,7 @@ async function sendCommands(arr) {
 }
 
 Options.Triggers.push({
-  zoneId: ZoneId.MiddleLaNoscea,
+  zoneId: ZoneId.MatchAll,
   triggers: [{
       id: 'Test Poke',
       netRegex: NetRegexes.gameNameLog({
@@ -86,7 +89,21 @@ Options.Triggers.push({
           en: 'Test',
         },
       },
-    },
+    }, {
+      id: 'Test Flex',
+      netRegex: NetRegexes.gameNameLog({
+        line: 'You flex your muscles for the striking dummy.*?',
+        capture: false,
+      }),
+      infoText: (data, _matches, output) => {
+        return output.flex();
+      },
+      outputStrings: {
+        flex: {
+          en: 'Flex',
+        }
+      },
+    }
   ],
 });
 
@@ -187,6 +204,44 @@ Options.Triggers.push({
     },
   ],
   triggers: [{
+      id: 'Dragon\'s Rage Thordan Dir Collector',
+      // 63C4 Is Thordan's --middle-- action, thordan jumps again and becomes untargetable, shortly after the 2nd 6C34 action
+      type: 'Ability',
+      netRegex: NetRegexes.ability({
+        id: '63C4',
+        source: 'King Thordan'
+      }),
+      condition: (data) => (data.phase === 'thordan' && (data.thordanJumpCnt = (data.thordanJumpCnt ?? 0) + 1) === 2),
+      delaySeconds: 0.5,
+      promise: async(data, matches) => {
+        // Select King Thordan
+        let thordanData = null;
+        thordanData = await callOverlayHandler({
+          call: 'getCombatants',
+          ids: [parseInt(matches.sourceId, 16)],
+        });
+        // if we could not retrieve combatant data, the
+        // trigger will not work, so just resume promise here
+        if (thordanData === null) {
+          console.error(`King Thordan: null data`);
+          return;
+        }
+        if (!thordanData.combatants) {
+          console.error(`King Thordan: null combatants`);
+          return;
+        }
+        const thordanDataLength = thordanData.combatants.length;
+        if (thordanDataLength !== 1) {
+          console.error(`King Thordan: expected 1 combatants got ${thordanDataLength}`);
+          return;
+        }
+        // Add the combatant's position
+        const thordan = thordanData.combatants.pop();
+        if (!thordan)
+          throw new UnreachableCode();
+        data.thordanDirection = matchedPositionTo8Dir(thordan);
+      },
+    }, {
       id: 'DSR Skyward Leap Targets Collector',
       type: 'HeadMarker',
       netRegex: NetRegexes.headMarker(),
@@ -198,31 +253,30 @@ Options.Triggers.push({
         if (!Array.isArray(data.leapTargets))
           data.leapTargets = [];
         data.leapTargets.push(matches.target);
-        console.log('BAKA! leapTargets:');
-        console.log(data.leapTargets);
       },
     }, {
-      id: 'DSR Skyward Leap Targets Strategy',
+      id: 'DSR Skyward Leap Targets Move',
       type: 'HeadMarker',
       netRegex: NetRegexes.headMarker(),
-      condition: (data, matches) => data.phase !== 'thordan'
+      condition: (data, matches) => data.phase === 'thordan'
        && getHeadmarkerId(data, matches) === headmarkers.skywardLeap
-       //&& !!data.thordanDirection
-       && !!data.leapTargets
+       && data.thordanDirection !== undefined
+       && Array.isArray(data.leapTargets)
        && data.leapTargets.length === 3,
+      delaySeconds: 2.5,
       infoText: (data, _matches, output) => {
-        if (leapTargets.some((target) => data.party.isTank(target)))
+        if (data.leapTargets.some((target) => data.party.isTank(target)))
           return output.tankGotLeap();
         const leapPrio = {}
         leapPrio[output.prio0()] = 0;
-        leapPrio[ouptut.prio1()] = 1;
+        leapPrio[output.prio1()] = 1;
         leapPrio[output.prio2()] = 2;
         leapPrio[output.prio3()] = 3;
         leapPrio[output.prio4()] = 4;
         leapPrio[output.prio5()] = 5;
-        leapTargets.sort((a, b) => leapPrio[a] - leapPrio[b]);
-        console.log('BAKA! sorted leapTargets:');
-        console.log(data.leapTargets);
+        data.leapTargets.sort((a, b) => {
+            return leapPrio[data.party.jobName(a)] - leapPrio[data.party.jobName(b)];
+          });
         const dirs = {
           0: output.northwest(),
           1: output.north(),
@@ -235,16 +289,16 @@ Options.Triggers.push({
           8: output.unknown(),
         };
         return output.safespot({
-          player1: data.ShortName(leapTargets[0]),
-          dir1: '3 o\'clock', // dirs[(data.thordanDirection + 2) % 8],
-          player2: data.ShortName(leapTargets[1]),
-          dir2: '6 o\'clock', // dirs[(data.thordanDirection + 4) % 8],
-          player3: data.ShortName(leapTargets[2]),
-          dir3: '9 o\'clock', // dirs[(data.thordanDirection + 6) % 8],
+          player1: data.ShortName(data.leapTargets[0]),
+          dir1: dirs[(data.thordanDirection + 2) % 8],
+          player2: data.ShortName(data.leapTargets[1]),
+          dir2: dirs[(data.thordanDirection + 4) % 8],
+          player3: data.ShortName(data.leapTargets[2]),
+          dir3: dirs[(data.thordanDirection + 6) % 8],
         });
       },
       run: (data, matches) => {
-        //delete data.thordanDirection;
+        delete data.thordanDirection;
         delete data.leapTargets;
       },
       outputStrings: {
@@ -264,52 +318,33 @@ Options.Triggers.push({
         prio4: 'DNC',
         prio5: 'RDM',
         safespot: {
-          en: '${player1} ${dir1} / ${player2} ${dir2} / ${player3} ${dir3}'
+          en: '${player1} ${dir1} , ${player2} ${dir2} , ${player3} ${dir3}'
         },
         tankGotLeap: {
           en: 'You fucked up.'
         }
       },
     }, {
-      id: 'DSR Sanctity of the Ward Swords for Party',
+      id: 'DSR Sanctity of the Ward Swords Collector',
       type: 'HeadMarker',
       netRegex: NetRegexes.headMarker(),
       condition: (data, matches) => data.phase === 'thordan',
-      infoText: (data, matches, output) => {
+      run: (data, matches, output) => {
         const id = getHeadmarkerId(data, matches);
-        if (id !== headmarkers.sword1 || id != headmarkers.sword2)
+        if (id !== headmarkers.sword1 && id !== headmarkers.sword2)
           return;
         if (!Array.isArray(data.sanctitySwordTargets))
           data.sanctitySwordTargets = [];
         data.sanctitySwordTargets.push(matches.target);
-        console.log('BAKA! sword:');
-        console.log(data.sanctitySwordTargets);
-        return output.swordOnTarget({
-          sword: id === headmarkers.sword1 ? output.sword1() : output.sword2,
-          player: matches.target
-        });
-      },
-      outputStrings: {
-        sword1: {
-          en: '1',
-        },
-        sword2: {
-          en: '2',
-        },
-        swordOnTarget: {
-          en: '${sword} on ${player}'
-        }
       },
     }, {
       id: 'DSR Sanctity of the Ward Swords Flex',
       type: 'HeadMarker',
       netRegex: NetRegexes.headMarker(),
       condition: (data, matches) => data.phase === 'thordan'
-       && !!data.sanctitySwordTargets
+       && Array.isArray(data.sanctitySwordTargets)
        && data.sanctitySwordTargets.length === 2,
-      infoText: (data, matches) => {
-        const job = data.party.jobName(matches.target);
-        data.sanctitySwordTargets.push(job);
+      infoText: (data, matches, output) => {
         const group = {}
         group[output.group1player1()] = 0;
         group[output.group1player2()] = 0;
@@ -320,8 +355,8 @@ Options.Triggers.push({
         group[output.group2player3()] = 1;
         group[output.group2player4()] = 1;
 
-        const sword1 = data.party.jobName(sanctitySwordTargets[0]);
-        const sword2 = data.party.jobName(sanctitySwordTargets[1]);
+        const sword1 = data.party.jobName(data.sanctitySwordTargets[0]);
+        const sword2 = data.party.jobName(data.sanctitySwordTargets[1]);
 
         if (group[sword1] === group[sword2]) {
           if (group[sword1] === 0) {
@@ -334,6 +369,7 @@ Options.Triggers.push({
           return output.noflex();
         }
       },
+      run: (data) => delete data.sanctitySwordTargets,
       outputStrings: {
         group1player1: 'WAR',
         group1player2: 'AST',
@@ -353,6 +389,94 @@ Options.Triggers.push({
           en: 'No Flex',
         },
       }
-    },
+    }, {
+      id: 'DSR Sanctity of the Ward Meteor Targets Collector',
+      type: 'HeadMarker',
+      netRegex: NetRegexes.headMarker(),
+      condition: (data, matches) => data.phase === 'thordan'
+       && getHeadmarkerId(data, matches) === headmarkers.meteor,
+      run: (data, matches) => {
+        if (!Array.isArray(data.meteorTargets)) {
+          data.meteorTargets = [];
+        }
+        data.meteorTargets.push(matches.target);
+        console.log('meteor targets: ', data.meteorTargets);
+      }
+    }, {
+      id: 'DSR Sanctity of the Ward Meteor Move',
+      type: 'HeadMarker',
+      netRegex: NetRegexes.headMarker(),
+      condition: (data, matches) => data.phase === 'thordan'
+       && getHeadmarkerId(data, matches) === headmarkers.meteor
+       && Array.isArray(data.meteorTargets)
+       && data.meteorTargets.length === 2,
+      delaySeconds: 1,
+      infoText: (data, matches, output) => {
+        console.log("BAKA!");
+        const jobToGroup = {};
+        jobToGroup[output.groupNPlayerDPS()] = 0;
+        jobToGroup[output.groupEPlayerDPS()] = 1;
+        jobToGroup[output.groupSPlayerDPS()] = 2;
+        jobToGroup[output.groupWPlayerDPS()] = 3;
+        jobToGroup[output.groupNPlayerTH()] = 0;
+        jobToGroup[output.groupEPlayerTH()] = 1;
+        jobToGroup[output.groupSPlayerTH()] = 2;
+        jobToGroup[output.groupWPlayerTH()] = 3;
+        const groupDir = [
+          output.north(),
+          output.east(),
+          output.south(),
+          output.west(),
+          output.unknown(),
+        ];
+        const targetsJob = [
+          data.party.jobName(data.meteorTargets[0]),
+          data.party.jobName(data.meteorTargets[1])];
+         console.log('meteor targets Job:', targetsJob);
+        if ((jobToGroup[targetsJob[0]] + jobToGroup[targetsJob[1]]) % 2 === 0) {
+          return output.noSwap();
+        } else {
+          const noSwapTargetIndex = jobToGroup[targetsJob[0] % 2] === 0 ? 0 : 1;
+          const swapTargetIndex = (noSwapTargetIndex + 1) % 2;
+          const swapFromGroup = jobToGroup[targetsJob[swapTargetIndex]];
+          const swapToGroup = (jobToGroup[targetsJob[noSwapTargetIndex]] + 2) % 4;
+          console.log(targetsJob[swapTargetIndex], ' SWAP from ', groupDir[swapFromGroup], ' to ', groupDir[swapToGroup]);
+          return output.swap({
+            dir1: groupDir[swapFromGroup],
+            dir2: groupDir[swapToGroup],
+            role: data.party.isDPS(matches.target) ?
+            output.dps() : output.tankhealer(),
+          });
+        }
+      },
+      run: (data) => delete data.meteorTargets,
+      outputStrings: {
+        north: Outputs.north,
+        east: Outputs.east,
+        south: Outputs.south,
+        west: Outputs.west,
+        unknown: Outputs.unknown,
+        groupNPlayerTH: 'WAR',
+        groupNPlayerDPS: 'SAM',
+        groupEPlayerTH: 'DRK',
+        groupEPlayerDPS: 'RPR',
+        groupSPlayerTH: 'AST',
+        groupSPlayerDPS: 'DNC',
+        groupWPlayerTH: 'SGE',
+        groupWPlayerDPS: 'RDM',
+        dps: {
+          en: 'DPS',
+        },
+        tankhealer: {
+          en: 'Tank Healer',
+        },
+        noSwap: {
+          en: 'No Swap',
+        },
+        swap: {
+          en: '${dir1}, ${dir2}, ${role} swap',
+        }
+      },
+    }
   ],
 });
