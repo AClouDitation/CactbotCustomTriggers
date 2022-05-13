@@ -27,7 +27,16 @@ Options.PullSound = '../../resources/sounds/freesound/sonar.webm';
 
 // A set of nicknames to use for players, when trying to shorten names.
 // See: https://github.com/quisquous/cactbot/blob/main/docs/CactbotCustomization.md#customizing-behavior
-Options.PlayerNicks = {};
+Options.PlayerNicks = {
+  'Aragaki Yui': 'Lolita',
+  'Megumin Re': 'Megoomi',
+  'Bunny Karin': 'Zilan',
+  'Arslan Jin': 'LianDao',
+  'Sweetmiku Faker': 'Miku',
+  'Alexstrasza Lifebindr': 'XiaoMei',
+  'Sinx Cosx': 'Sign x',
+  'Yamanami San': 'AO',
+};
 
 console.log('===============================');
 console.log('Raid boss custom trigger loaded');
@@ -213,8 +222,9 @@ Options.Triggers.push({
       }),
       condition: (data) => (data.phase === 'thordan' && (data.thordanJumpCnt = (data.thordanJumpCnt ?? 0) + 1) === 2),
       delaySeconds: 0.5,
-      promise: async(data, matches) => {
+      promise: async (data, matches) => {
         // Select King Thordan
+        console.log('BAKA!');
         let thordanData = null;
         thordanData = await callOverlayHandler({
           call: 'getCombatants',
@@ -240,6 +250,7 @@ Options.Triggers.push({
         if (!thordan)
           throw new UnreachableCode();
         data.thordanDirection = matchedPositionTo8Dir(thordan);
+        console.log('Thordan Direction', data.thordanDirection);
       },
     }, {
       id: 'DSR Skyward Leap Targets Collector',
@@ -253,18 +264,19 @@ Options.Triggers.push({
         if (!Array.isArray(data.leapTargets))
           data.leapTargets = [];
         data.leapTargets.push(matches.target);
+        console.log('meteor targets: ', data.leapTargets);
       },
     }, {
       id: 'DSR Skyward Leap Targets Move',
       type: 'HeadMarker',
       netRegex: NetRegexes.headMarker(),
       condition: (data, matches) => data.phase === 'thordan'
-       && getHeadmarkerId(data, matches) === headmarkers.skywardLeap
-       && data.thordanDirection !== undefined
-       && Array.isArray(data.leapTargets)
-       && data.leapTargets.length === 3,
-      delaySeconds: 2.5,
+        && getHeadmarkerId(data, matches) === headmarkers.skywardLeap
+        && Array.isArray(data.leapTargets)
+        && data.leapTargets.length === 3,
+      delaySeconds: 1.5,
       infoText: (data, _matches, output) => {
+        if (data.thordanDirection === undefined) return;
         if (data.leapTargets.some((target) => data.party.isTank(target)))
           return output.tankGotLeap();
         const leapPrio = {}
@@ -410,9 +422,8 @@ Options.Triggers.push({
        && getHeadmarkerId(data, matches) === headmarkers.meteor
        && Array.isArray(data.meteorTargets)
        && data.meteorTargets.length === 2,
-      delaySeconds: 1,
+      delaySeconds: 0.5,
       infoText: (data, matches, output) => {
-        console.log("BAKA!");
         const jobToGroup = {};
         jobToGroup[output.groupNPlayerDPS()] = 0;
         jobToGroup[output.groupEPlayerDPS()] = 1;
@@ -432,7 +443,6 @@ Options.Triggers.push({
         const targetsJob = [
           data.party.jobName(data.meteorTargets[0]),
           data.party.jobName(data.meteorTargets[1])];
-         console.log('meteor targets Job:', targetsJob);
         if ((jobToGroup[targetsJob[0]] + jobToGroup[targetsJob[1]]) % 2 === 0) {
           return output.noSwap();
         } else {
@@ -440,7 +450,6 @@ Options.Triggers.push({
           const swapTargetIndex = (noSwapTargetIndex + 1) % 2;
           const swapFromGroup = jobToGroup[targetsJob[swapTargetIndex]];
           const swapToGroup = (jobToGroup[targetsJob[noSwapTargetIndex]] + 2) % 4;
-          console.log(targetsJob[swapTargetIndex], ' SWAP from ', groupDir[swapFromGroup], ' to ', groupDir[swapToGroup]);
           return output.swap({
             dir1: groupDir[swapFromGroup],
             dir2: groupDir[swapToGroup],
