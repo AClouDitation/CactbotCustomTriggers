@@ -29,12 +29,12 @@ Options.PullSound = '../../resources/sounds/freesound/sonar.webm';
 // See: https://github.com/quisquous/cactbot/blob/main/docs/CactbotCustomization.md#customizing-behavior
 Options.PlayerNicks = {
   'Aragaki Yui': 'Lolita',
-  'Megumin Re': 'Megoomi',
+  'Megumin Re': 'Megumin',
   'Bunny Karin': 'Zilan',
-  'Arslan Jin': 'LianDao',
+  'Arslan Jin': 'Nin',
   'Sweetmiku Faker': 'Miku',
-  'Alexstrasza Lifebindr': 'XiaoMei',
-  'Sinx Cosx': 'Sign x',
+  'Alexstrasza Lifebindr': 'Mirror',
+  'Sinx Cosx': 'Sign X',
   'Yamanami San': 'AO',
 };
 
@@ -213,46 +213,6 @@ Options.Triggers.push({
     },
   ],
   triggers: [{
-      id: 'Dragon\'s Rage Thordan Dir Collector',
-      // 63C4 Is Thordan's --middle-- action, thordan jumps again and becomes untargetable, shortly after the 2nd 6C34 action
-      type: 'Ability',
-      netRegex: NetRegexes.ability({
-        id: '63C4',
-        source: 'King Thordan'
-      }),
-      condition: (data) => (data.phase === 'thordan' && (data.thordanJumpCnt = (data.thordanJumpCnt ?? 0) + 1) === 2),
-      delaySeconds: 0.5,
-      promise: async (data, matches) => {
-        // Select King Thordan
-        console.log('BAKA!');
-        let thordanData = null;
-        thordanData = await callOverlayHandler({
-          call: 'getCombatants',
-          ids: [parseInt(matches.sourceId, 16)],
-        });
-        // if we could not retrieve combatant data, the
-        // trigger will not work, so just resume promise here
-        if (thordanData === null) {
-          console.error(`King Thordan: null data`);
-          return;
-        }
-        if (!thordanData.combatants) {
-          console.error(`King Thordan: null combatants`);
-          return;
-        }
-        const thordanDataLength = thordanData.combatants.length;
-        if (thordanDataLength !== 1) {
-          console.error(`King Thordan: expected 1 combatants got ${thordanDataLength}`);
-          return;
-        }
-        // Add the combatant's position
-        const thordan = thordanData.combatants.pop();
-        if (!thordan)
-          throw new UnreachableCode();
-        data.thordanDirection = matchedPositionTo8Dir(thordan);
-        console.log('Thordan Direction', data.thordanDirection);
-      },
-    }, {
       id: 'DSR Skyward Leap Targets Collector',
       type: 'HeadMarker',
       netRegex: NetRegexes.headMarker(),
@@ -276,7 +236,6 @@ Options.Triggers.push({
         && data.leapTargets.length === 3,
       delaySeconds: 1.5,
       infoText: (data, _matches, output) => {
-        if (data.thordanDirection === undefined) return;
         if (data.leapTargets.some((target) => data.party.isTank(target)))
           return output.tankGotLeap();
         const leapPrio = {}
@@ -289,48 +248,22 @@ Options.Triggers.push({
         data.leapTargets.sort((a, b) => {
             return leapPrio[data.party.jobName(a)] - leapPrio[data.party.jobName(b)];
           });
-        const dirs = {
-          0: output.northwest(),
-          1: output.north(),
-          2: output.northeast(),
-          3: output.east(),
-          4: output.southeast(),
-          5: output.south(),
-          6: output.southwest(),
-          7: output.west(),
-          8: output.unknown(),
-        };
         return output.safespot({
           player1: data.ShortName(data.leapTargets[0]),
-          dir1: dirs[(data.thordanDirection + 2) % 8],
           player2: data.ShortName(data.leapTargets[1]),
-          dir2: dirs[(data.thordanDirection + 4) % 8],
           player3: data.ShortName(data.leapTargets[2]),
-          dir3: dirs[(data.thordanDirection + 6) % 8],
         });
       },
-      run: (data, matches) => {
-        delete data.thordanDirection;
-        delete data.leapTargets;
-      },
+      run: (data, matches) => delete data.leapTargets,
       outputStrings: {
-        north: Outputs.north,
-        northeast: Outputs.northeast,
-        east: Outputs.east,
-        southeast: Outputs.southeast,
-        south: Outputs.south,
-        southwest: Outputs.southwest,
-        west: Outputs.west,
-        northwest: Outputs.northwest,
-        unknown: Outputs.unknown,
         prio0: 'AST',
         prio1: 'SGE',
         prio2: 'SAM',
-        prio3: 'RPR',
+        prio3: 'NIN',
         prio4: 'DNC',
         prio5: 'RDM',
         safespot: {
-          en: '${player1} ${dir1} , ${player2} ${dir2} , ${player3} ${dir3}'
+          en: '${player1}, ${player2}, ${player3}'
         },
         tankGotLeap: {
           en: 'You fucked up.'
@@ -385,7 +318,7 @@ Options.Triggers.push({
       outputStrings: {
         group1player1: 'WAR',
         group1player2: 'AST',
-        group1player3: 'RPR',
+        group1player3: 'NIN',
         group1player4: 'DNC',
         group2player1: 'DRK',
         group2player2: 'SGE',
@@ -443,11 +376,22 @@ Options.Triggers.push({
         const targetsJob = [
           data.party.jobName(data.meteorTargets[0]),
           data.party.jobName(data.meteorTargets[1])];
-        if ((jobToGroup[targetsJob[0]] + jobToGroup[targetsJob[1]]) % 2 === 0) {
+        if (jobToGroup[targetsJob[0]] + jobToGroup[targetsJob[1]] === 2) {
           return output.noSwap();
-        } else {
-          const noSwapTargetIndex = jobToGroup[targetsJob[0] % 2] === 0 ? 0 : 1;
+        }
+        if (jobToGroup[targetsJob[0]] + jobToGroup[targetsJob[1]] === 4) {
+          return output.allSwap({
+            role: data.party.isDps(matches.target) ? 
+              output.dps() : 
+              output.tankhealer()});
+        }          
+        else {
+          const noSwapTargetIndex = jobToGroup[targetsJob[0]]%2 === 0 ? 0 : 1;
           const swapTargetIndex = (noSwapTargetIndex + 1) % 2;
+          console.log("noswap:", targetsJob[noSwapTargetIndex], 
+            "swap:", targetsJob[swapTargetIndex]);
+          console.log("noswap:", jobToGroup[targetsJob[noSwapTargetIndex]], 
+            "swap:", jobToGroup[targetsJob[swapTargetIndex]]);
           const swapFromGroup = jobToGroup[targetsJob[swapTargetIndex]];
           const swapToGroup = (jobToGroup[targetsJob[noSwapTargetIndex]] + 2) % 4;
           return output.swap({
@@ -468,7 +412,7 @@ Options.Triggers.push({
         groupNPlayerTH: 'WAR',
         groupNPlayerDPS: 'SAM',
         groupEPlayerTH: 'DRK',
-        groupEPlayerDPS: 'RPR',
+        groupEPlayerDPS: 'NIN',
         groupSPlayerTH: 'AST',
         groupSPlayerDPS: 'DNC',
         groupWPlayerTH: 'SGE',
@@ -482,8 +426,11 @@ Options.Triggers.push({
         noSwap: {
           en: 'No Swap',
         },
+        allSwap: {
+          en: 'All ${role} Clockwise'
+        },
         swap: {
-          en: '${dir1}, ${dir2}, ${role} swap',
+          en: '${dir1}, ${dir2}, ${role} Swap',
         }
       },
     }
