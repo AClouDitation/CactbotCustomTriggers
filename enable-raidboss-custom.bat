@@ -1,0 +1,1 @@
+copy ".\raidboss-custom.js" ".\raidboss.js"
